@@ -22,7 +22,7 @@ Kristallpunk hat kein eigenes, offizielles Foundry-System, weil es ein privates 
 
 1. **Custom System Builder installieren** und eine Welt mit diesem System als Grundlage anlegen.
 2. **Charakterbogen importieren:** In der Welt unter Einstellungen → Custom System Builder → *Import templates JSON* die Datei `character-template.json` auswählen.
-3. **Style-Fix installieren:** Diesen Ordner (oder zumindest `module.json` und `kristallpunk-sheet.css`) nach `<FoundryDatenordner>/Data/modules/kristallpunk-foundry/` kopieren, dann in der Welt unter *Module verwalten* aktivieren.
+3. **Style-Fix installieren:** Diesen Ordner (oder zumindest `module.json` und `kristallpunk-sheet.css`) nach `<FoundryDatenordner>/Data/modules/kristallpunk-foundry/` kopieren, dann in der Welt unter *Module verwalten* aktivieren. Läuft der Foundry-Server bereits, taucht das Modul erst nach einem Server-Neustart in der Liste auf (Foundry scannt `Data/modules/` nur beim Start neu ein). Danach unter Einstellungen → Custom System Builder das Feld "CSS Style file" leeren, sonst laden zwei identische Stylesheets parallel.
 
 Damit rechnen Maximalwerte für Ausdauer live aus den Attributen, jede Fertigkeit zeigt ihren Würfel-Pool (Fertigkeit + zugehöriges Attribut) direkt daneben, anklickbar. Ein Klick würfelt die passende Anzahl W6 und zeigt im Chat die einzelnen Würfel, die Erfolge (6er) und die Einser getrennt, inklusive Markierung bei einem kritischen Erfolg oder Misserfolg nach der Dreierpasch-Regel.
 
@@ -37,7 +37,8 @@ Der Status-Bereich zeigt zusätzlich einen visuellen Status-Anzeiger: eine Zelle
 - Automatischer Kompetenz-Reroll für Einser ("1er wiederholen") fehlt, braucht die Kompetenz-Felder als Voraussetzung.
 - Das Regelwerk selbst ist an einigen Stellen noch nicht final (z. B. Attributsmaximum 6 vs. 7), einige Werte im Bogen sind entsprechend vorläufig.
 
-## CSB-Formeln, zwei Stolpersteine für die Zukunft
+## CSB-Formeln, Stolpersteine für die Zukunft
 
 - Formeln müssen in `${ }$` eingeschlossen werden, sonst wird der Text nur wörtlich angezeigt statt berechnet.
 - Ein Roll-Skript (`%{ ... }%`) in einer Komponente mit eigenem Key läuft synchron, `await` funktioniert darin nicht zuverlässig. Für einen Würfel-Wurf mit `await new Roll(...).evaluate()` muss die Komponente keylos sein (leeres Key-Feld).
+- `${ }$`-Formeln unterstützen den mathjs-Ternary-Operator (`bedingung ? a : b`), live verifiziert im Status-Anzeiger-Tracker (`build_template.py`, `track_cell()`). Damit lassen sich bedingte Anzeigen (z. B. ein Marker auf genau einer Zelle) ohne Script-Expression bauen.
