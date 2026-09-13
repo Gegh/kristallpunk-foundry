@@ -39,12 +39,18 @@
 .table_track_koerper table td,
 .table_track_geist table td,
 .table_track_innenleben table td {
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
   text-align: center;
   vertical-align: middle;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  /* Foundry's dark theme sets a light default text color; without an
+     explicit override it's nearly invisible against these light pastel
+     cell backgrounds. This was the actual bug behind "Zahlen nicht
+     lesbar" (Georg, 2026-09-13, Screenshot). */
+  color: #2d2d2d !important;
   padding: 2px;
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
