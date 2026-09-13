@@ -52,7 +52,30 @@
      lesbar" (Georg, 2026-09-13, Screenshot). */
   color: #2d2d2d !important;
   padding: 2px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  /* Clearly visible cell border (Georg, 2026-09-13: "die zellen sollen
+     eine border bekommen damit es gut sichtbar ist") - a solid, fairly
+     dark grey rather than the near-invisible translucent black used
+     elsewhere on this sheet, since these cells sit on light backgrounds. */
+  border: 1px solid #7a7a7a;
+}
+
+/* Cells are clickable (a click sets the underlying field to that cell's
+   value, see build_template.py click_set_script()); make that obvious. */
+.table_track_koerper table td,
+.table_track_koerper table td *,
+.table_track_geist table td,
+.table_track_geist table td *,
+.table_track_innenleben table td,
+.table_track_innenleben table td * {
+  cursor: pointer;
+}
+
+.table_track_koerper table td:hover,
+.table_track_geist table td:hover,
+.table_track_innenleben table td:hover {
+  filter: brightness(0.9);
+  outline: 2px solid rgba(45, 45, 45, 0.6);
+  outline-offset: -2px;
 }
 
 .table_track_koerper table td:nth-child(-n+3) { background-color: #f6c9c9; }

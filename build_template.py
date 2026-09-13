@@ -10,6 +10,15 @@ def wrapper(key, extra):
     d.update(extra)
     return d
 
+def num(prop):
+    # JS Script-Expression snippet: read a numeric prop safely. CSB stores
+    # numberField values as strings, so bare access needs coercion (source
+    # of the earlier "Pool 04" string-concatenation bug).
+    return f"Number(props.{prop} ?? 0)"
+
+def js_sum(*props):
+    return " + ".join(num(p) for p in props)
+
 def number_field(key, label, minv, maxv, allow_relative=False, tooltip=""):
     c = wrapper(key, {
         "type": "numberField", "size": "full-size", "label": label,
@@ -30,14 +39,16 @@ def static_label(key, text, tooltip=""):
     c["tooltip"] = tooltip
     return c
 
-def computed_label(key, formula, prefix="", suffix="", tooltip=""):
-    # Plain (non-rollable) live-computed display, e.g. for showing a
-    # calculated maximum next to an editable current-value field.
+def computed_label(key, formula, prefix="", suffix="", tooltip="", roll_message="", roll_to_chat=False):
+    # Plain live-computed display, e.g. for showing a calculated maximum
+    # next to an editable current-value field. Optionally clickable: a
+    # non-empty roll_message makes it behave like pool_button() (runs on
+    # click), just without the "button" visual style.
     c = wrapper(key, {
         "type": "label", "size": "full-size", "icon": "",
         "value": f"${{{formula}}}$", "prefix": prefix, "suffix": suffix,
-        "rollMessage": "", "altRollMessage": "", "rollMessageToChat": True,
-        "altRollMessageToChat": True, "style": "label",
+        "rollMessage": roll_message, "altRollMessage": "", "rollMessageToChat": roll_to_chat,
+        "altRollMessageToChat": roll_to_chat, "style": "label",
     })
     c["tooltip"] = tooltip
     return c
@@ -96,41 +107,61 @@ def table(key, rows_cells, cols, layout):
         "cssClass": "kristallpunk-table",
     })
 
-# --- Status-Anzeiger: visueller Ausdauer/Wunden/Innenleben-Tracker ---
+# --- Status-Anzeiger: visueller, klickbarer Ausdauer/Wunden/Innenleben-Tracker ---
 # Nachbau des physischen "Statusanzeiger"-Gadgets (Statusanzeiger-pdf-2026.pdf)
-# und seiner Miro-Version (kristallpunk-spieltisch-miro), als schreibgeschuetzte
-# Zell-Reihe: jede Zelle zeigt entweder ihre Zahl oder, wenn sie dem aktuellen
-# Wert entspricht, einen Marker "●". Nur ${...}$-Formeln (math.js), keine
-# Script-Expressions noetig, damit es sich wie computed_label() verhaelt: rein
-# lesend, ohne die async/Sync-Falle der Roll-Skripte.
-def track_cell(current_field, n, max_formula=None, show_plus=False):
+# und seiner Miro-Version (kristallpunk-spieltisch-miro): jede Zelle zeigt
+# entweder ihre Zahl oder, wenn sie dem aktuellen Wert entspricht, einen
+# Marker "●" (${...}$-Formel, math.js-Ternary). Zusaetzlich klickbar: ein
+# Klick setzt das zugrundeliegende Feld direkt auf den Zellenwert, wie beim
+# Verschieben des physischen Markers (Georg, 2026-09-13: "mach die zellen
+# klickbar"). Keylos, damit ein moeglicher Roll-Message-Bug mit Keys (siehe
+# roll_script()) gar nicht erst auftreten kann, auch wenn dieses Skript
+# selbst kein await braucht.
+def click_set_script(field, value, max_js=None):
+    # Must declare "props" itself (matching roll_script()'s pattern): the
+    # max_js guard expression references it via num()/js_sum(), and without
+    # this line it throws "ReferenceError: props is not defined", caught
+    # live via read_console_messages() on the first version of this script.
+    guard = f'if ({value} > ({max_js})) return "";\n  ' if max_js is not None else ""
+    return (
+        "%{\n"
+        "  const props = entity.system.props;\n"
+        f"  {guard}entity.update({{\"system.props.{field}\": \"{value}\"}});\n"
+        "  return \"\";\n"
+        "}%"
+    )
+
+def track_cell(current_field, n, max_formula=None, max_js=None, show_plus=False):
     label = f"+{n}" if (show_plus and n > 0) else str(n)
     if max_formula is None:
-        # Wund-Zelle: fester Bereich, kein Maximum-Check noetig.
+        # Wund-Zelle oder Null-Pivot: fester Bereich, kein Maximum-Check noetig.
         formula = f'{current_field}=={n} ? "●" : {n}'
+        click = click_set_script(current_field, n)
     else:
         # Ausdauer- oder Innenleben-Zelle: leer, wenn ausserhalb des fuer
         # diesen Charakter berechneten Maximums (z. B. Ausdauer 15 bei nur
-        # 12 Punkten Max), sonst Zahl oder Marker.
+        # 12 Punkten Max), sonst Zahl oder Marker. Klick auf eine leere
+        # Zelle setzt entsprechend nichts (Guard im Klick-Skript).
         formula = f'{current_field}=={n} ? "●" : ({n} <= ({max_formula}) ? "{label}" : "")'
-    return computed_label("", formula)
+        click = click_set_script(current_field, n, max_js)
+    return computed_label("", formula, tooltip="Klicken, um diesen Wert zu setzen.", roll_message=click)
 
-def ausdauer_track(key, current_field, wound_field, track_max, max_formula):
+def ausdauer_track(key, current_field, wound_field, track_max, max_formula, max_js):
     row = []
     for n in (3, 2, 1):
         row.append(track_cell(wound_field, n))
-    row.append(computed_label("", f'{current_field}==0 ? "●" : 0'))
+    row.append(track_cell(current_field, 0))
     for n in range(1, track_max + 1):
-        row.append(track_cell(current_field, n, max_formula))
+        row.append(track_cell(current_field, n, max_formula, max_js))
     return table(key, [row], len(row), "c" * len(row))
 
 def innenleben_track(key, current_field):
     row = []
     for n in range(-3, 0):
         row.append(track_cell(current_field, n))
-    row.append(computed_label("", f'{current_field}==0 ? "●" : 0'))
+    row.append(track_cell(current_field, 0))
     for n in range(1, 4):
-        row.append(track_cell(current_field, n, "3", show_plus=True))
+        row.append(track_cell(current_field, n, "3", "3", show_plus=True))
     return table(key, [row], len(row), "c" * len(row))
 
 # --- Attributes ---
@@ -182,19 +213,16 @@ status = panel("panel_status", "Status", "vertical", [
     ], collapsible=False),
     panel("panel_statusanzeiger", "Status-Anzeiger", "vertical", [
         panel("panel_track_koerper_title", "Koerper: Leibwunde (3-1) | Ausdauer (0-18)", "vertical", [
-            ausdauer_track("table_track_koerper", "koerper_ausdauer", "leibwunden", 18, "kraft+geschick+sinne"),
+            ausdauer_track("table_track_koerper", "koerper_ausdauer", "leibwunden", 18, "kraft+geschick+sinne", js_sum("kraft", "geschick", "sinne")),
         ], collapsible=False),
         panel("panel_track_geist_title", "Geist: Nervenschock (3-1) | Ausdauer (0-18)", "vertical", [
-            ausdauer_track("table_track_geist", "geist_ausdauer", "nervenschock", 18, "wille+intelligenz+empathie"),
+            ausdauer_track("table_track_geist", "geist_ausdauer", "nervenschock", 18, "wille+intelligenz+empathie", js_sum("wille", "intelligenz", "empathie")),
         ], collapsible=False),
         panel("panel_track_innenleben_title", "Innenleben: Zweifel (-3) .. Zuversicht (+3)", "vertical", [
             innenleben_track("table_track_innenleben", "innenleben"),
         ], collapsible=False),
     ], collapsible=False),
 ])
-
-def num(prop):
-    return f"Number(props.{prop} ?? 0)"
 
 # --- Abgeleitete Werte: Table (Name | Pool-Button) + Ruestung/Schutz separat ---
 # Each entry: key, display name, CSB-formula (for the passive "Pool N" display),
