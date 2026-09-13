@@ -23,3 +23,48 @@
 .table_fertigkeiten_geist table tbody tr:last-child {
   border-bottom: none;
 }
+
+/* Status-Anzeiger: visueller Ausdauer/Wunden/Innenleben-Tracker, Nachbau des
+   physischen Gadgets (Statusanzeiger-pdf-2026.pdf) und seiner Miro-Version
+   (kristallpunk-spieltisch-miro), gleiche Farben. Jede Zelle zeigt ihre Zahl
+   oder, am aktuellen Wert (siehe build_template.py track_cell()), einen
+   Marker "●". Reihenfolge je Reihe: 3 Wund-Zellen, Null-Zelle, dann
+   Ausdauer- bzw. Zuversicht-Zellen aufsteigend. */
+.table_track_koerper table tbody tr,
+.table_track_geist table tbody tr,
+.table_track_innenleben table tbody tr {
+  background-color: transparent !important;
+}
+
+.table_track_koerper table td,
+.table_track_geist table td,
+.table_track_innenleben table td {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 12px;
+  padding: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.table_track_koerper table td:nth-child(-n+3) { background-color: #f6c9c9; }
+.table_track_geist table td:nth-child(-n+3) { background-color: #c9d6f6; }
+.table_track_innenleben table td:nth-child(-n+3) { background-color: #e7c9f6; }
+
+.table_track_koerper table td:nth-child(4),
+.table_track_geist table td:nth-child(4),
+.table_track_innenleben table td:nth-child(4) {
+  background-color: #f4f2ec;
+  font-weight: 700;
+}
+
+.table_track_koerper table td:nth-child(n+5),
+.table_track_geist table td:nth-child(n+5) {
+  background-color: #f4f2ec;
+}
+
+.table_track_innenleben table td:nth-child(n+5) {
+  background-color: #c9f6d4;
+}

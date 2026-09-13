@@ -26,8 +26,12 @@ Kristallpunk hat kein eigenes, offizielles Foundry-System, weil es ein privates 
 
 Damit rechnen Maximalwerte für Ausdauer live aus den Attributen, jede Fertigkeit zeigt ihren Würfel-Pool (Fertigkeit + zugehöriges Attribut) direkt daneben, anklickbar. Ein Klick würfelt die passende Anzahl W6 und zeigt im Chat die einzelnen Würfel, die Erfolge (6er) und die Einser getrennt, inklusive Markierung bei einem kritischen Erfolg oder Misserfolg nach der Dreierpasch-Regel.
 
+Der Status-Bereich zeigt zusätzlich einen visuellen Status-Anzeiger: eine Zellenreihe je Körper-Ausdauer/Leibwunde, Geist-Ausdauer/Nervenschock und Innenleben, mit einem Marker "●" auf der Zelle des aktuellen Werts (Nachbau des physischen Statusanzeiger-Gadgets vom Spieltisch). Innenleben ist ein einziges Feld von -3 (Zweifel) bis +3 (Zuversicht) und ersetzt hier die getrennten Zuversicht/Zweifel-Zähler des Hauptregelwerks, siehe "Bekannte Lücken" unten.
+
 ## Bekannte Lücken
 
+- Der Status-Anzeiger-Tracker wurde generiert, aber noch nicht live im Browser angesehen (Chrome-Erweiterung liess sich beim Bauen nicht verbinden). Nach dem Import prüfen, ob die Ternary-Formeln (`${bedingung ? a : b}$`) tatsächlich ausgewertet werden statt wörtlich angezeigt zu werden.
+- Innenleben (-3 bis +3) ersetzt hier die getrennten Zuversicht/Zweifel-Zähler (je 0-5) aus dem Hauptregelwerk v0.93. Beide Zählweisen widersprechen sich, siehe die Innenleben-Klärung im KRISTALLPUNK-Wiki (`status-wunden-zuversicht.md`). Ein bereits ausgefüllter Charakterbogen mit alten Zuversicht/Zweifel-Werten übernimmt diese beim Re-Import nicht automatisch in das neue Innenleben-Feld.
 - Ausrüstungs- und Zauberkarten als eigene Item-Typen fehlen noch.
 - Fertigkeiten zeigen nur den Grundwert, noch keine Kompetenzen.
 - Automatischer Kompetenz-Reroll für Einser ("1er wiederholen") fehlt, braucht die Kompetenz-Felder als Voraussetzung.

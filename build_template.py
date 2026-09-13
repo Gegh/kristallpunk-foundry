@@ -96,6 +96,43 @@ def table(key, rows_cells, cols, layout):
         "cssClass": "kristallpunk-table",
     })
 
+# --- Status-Anzeiger: visueller Ausdauer/Wunden/Innenleben-Tracker ---
+# Nachbau des physischen "Statusanzeiger"-Gadgets (Statusanzeiger-pdf-2026.pdf)
+# und seiner Miro-Version (kristallpunk-spieltisch-miro), als schreibgeschuetzte
+# Zell-Reihe: jede Zelle zeigt entweder ihre Zahl oder, wenn sie dem aktuellen
+# Wert entspricht, einen Marker "●". Nur ${...}$-Formeln (math.js), keine
+# Script-Expressions noetig, damit es sich wie computed_label() verhaelt: rein
+# lesend, ohne die async/Sync-Falle der Roll-Skripte.
+def track_cell(current_field, n, max_formula=None, show_plus=False):
+    label = f"+{n}" if (show_plus and n > 0) else str(n)
+    if max_formula is None:
+        # Wund-Zelle: fester Bereich, kein Maximum-Check noetig.
+        formula = f'{current_field}=={n} ? "●" : {n}'
+    else:
+        # Ausdauer- oder Innenleben-Zelle: leer, wenn ausserhalb des fuer
+        # diesen Charakter berechneten Maximums (z. B. Ausdauer 15 bei nur
+        # 12 Punkten Max), sonst Zahl oder Marker.
+        formula = f'{current_field}=={n} ? "●" : ({n} <= ({max_formula}) ? "{label}" : "")'
+    return computed_label("", formula)
+
+def ausdauer_track(key, current_field, wound_field, track_max, max_formula):
+    row = []
+    for n in (3, 2, 1):
+        row.append(track_cell(wound_field, n))
+    row.append(computed_label("", f'{current_field}==0 ? "●" : 0'))
+    for n in range(1, track_max + 1):
+        row.append(track_cell(current_field, n, max_formula))
+    return table(key, [row], len(row), "c" * len(row))
+
+def innenleben_track(key, current_field):
+    row = []
+    for n in range(-3, 0):
+        row.append(track_cell(current_field, n))
+    row.append(computed_label("", f'{current_field}==0 ? "●" : 0'))
+    for n in range(1, 4):
+        row.append(track_cell(current_field, n, "3", show_plus=True))
+    return table(key, [row], len(row), "c" * len(row))
+
 # --- Attributes ---
 attr_koerper = panel("panel_attribute_koerper", "Attribute: Koerper", "grid-3", [
     number_field("kraft", "Kraft", 0, 6),
@@ -130,17 +167,29 @@ ausdauer_table = table("table_ausdauer", [
     ],
 ], 3, "lcc")
 
+innenleben_tip = ("Eine gemeinsame Skala von -3 (Zweifel) bis +3 (Zuversicht) ueber die neutrale 0 " +
+                   "(Innenleben), siehe Statusanzeiger-Gadget. Ersetzt die getrennten 0-5-Zaehler " +
+                   "aus dem Hauptregelwerk fuer diese digitale Umsetzung.")
+
 status = panel("panel_status", "Status", "vertical", [
     ausdauer_table,
-    panel("panel_status_rest", "", "grid-4", [
+    panel("panel_status_rest", "", "grid-3", [
         number_field("leibwunden", "Leibwunden", 0, 3, True,
                      "-1 auf koerperliche Proben pro Leibwunde, kumulativ bis -3. Vierte Leibwunde wird zu Nervenschock."),
         number_field("nervenschock", "Nervenschock", 0, 3, True,
                      "-1 auf geistige Proben pro Nervenschock, kumulativ bis -3. Vierter Nervenschock wird zu Leibwunde."),
-        number_field("zuversicht", "Zuversicht", 0, 5, True,
-                     "Startwert nach Alter, siehe Charaktererstellung. Max 5, ein sechster Punkt gilt als automatischer Erfolg."),
-        number_field("zweifel", "Zweifel", 0, 5, True,
-                     "Max 5, ein sechster Punkt gibt der SL Kontrolle oder eine Truebnismutation."),
+        number_field("innenleben", "Innenleben", -3, 3, True, innenleben_tip),
+    ], collapsible=False),
+    panel("panel_statusanzeiger", "Status-Anzeiger", "vertical", [
+        panel("panel_track_koerper_title", "Koerper: Leibwunde (3-1) | Ausdauer (0-18)", "vertical", [
+            ausdauer_track("table_track_koerper", "koerper_ausdauer", "leibwunden", 18, "kraft+geschick+sinne"),
+        ], collapsible=False),
+        panel("panel_track_geist_title", "Geist: Nervenschock (3-1) | Ausdauer (0-18)", "vertical", [
+            ausdauer_track("table_track_geist", "geist_ausdauer", "nervenschock", 18, "wille+intelligenz+empathie"),
+        ], collapsible=False),
+        panel("panel_track_innenleben_title", "Innenleben: Zweifel (-3) .. Zuversicht (+3)", "vertical", [
+            innenleben_track("table_track_innenleben", "innenleben"),
+        ], collapsible=False),
     ], collapsible=False),
 ])
 
