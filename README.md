@@ -30,8 +30,8 @@ Der Status-Bereich zeigt zusätzlich einen visuellen Status-Anzeiger: eine Zelle
 
 ## Bekannte Lücken
 
-- Der Status-Anzeiger-Tracker wurde generiert, aber noch nicht live im Browser angesehen (Chrome-Erweiterung liess sich beim Bauen nicht verbinden). Nach dem Import prüfen, ob die Ternary-Formeln (`${bedingung ? a : b}$`) tatsächlich ausgewertet werden statt wörtlich angezeigt zu werden.
 - Innenleben (-3 bis +3) ersetzt hier die getrennten Zuversicht/Zweifel-Zähler (je 0-5) aus dem Hauptregelwerk v0.93. Beide Zählweisen widersprechen sich, siehe die Innenleben-Klärung im KRISTALLPUNK-Wiki (`status-wunden-zuversicht.md`). Ein bereits ausgefüllter Charakterbogen mit alten Zuversicht/Zweifel-Werten übernimmt diese beim Re-Import nicht automatisch in das neue Innenleben-Feld.
+- Nach einem Re-Import des Templates zeigen bereits angelegte Charaktere weiterhin den alten Bogen, bis man im Charakterblatt neben dem "Template"-Dropdown auf das Neuladen-Symbol klickt.
 - Ausrüstungs- und Zauberkarten als eigene Item-Typen fehlen noch.
 - Fertigkeiten zeigen nur den Grundwert, noch keine Kompetenzen.
 - Automatischer Kompetenz-Reroll für Einser ("1er wiederholen") fehlt, braucht die Kompetenz-Felder als Voraussetzung.
