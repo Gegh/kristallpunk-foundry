@@ -1,0 +1,25 @@
+/* Kristallpunk Charakterbogen: ruhiger, gleichmaessiger Tabellenhintergrund
+   statt Zeilenstreifen.
+   Ursache des Streifens: Foundrys eigene ApplicationV2-Tabellenregel
+   `table tbody tr:nth-child(even/odd) { background-color: var(--table-row-color-*); }`
+   in scripts/foundry.mjs, ohne Klassen-Bindung, greift auf jede Tabelle im
+   System zu. Ein erster Fix-Versuch scheiterte, weil er noch die alte
+   Foundry-V1-Klasse ".app" voraussetzte, die es im neuen ApplicationV2-
+   Fenster (Klasse "application") gar nicht mehr gibt.
+   Statt Streifen: einheitlicher, transparenter Zeilenhintergrund plus duenne
+   Trennlinie zwischen Zeilen, das gibt Struktur ohne die alternierende
+   Unruhe. */
+.table_ausdauer table tbody tr,
+.table_abgeleitet table tbody tr,
+.table_fertigkeiten_koerper table tbody tr,
+.table_fertigkeiten_geist table tbody tr {
+  background-color: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table_ausdauer table tbody tr:last-child,
+.table_abgeleitet table tbody tr:last-child,
+.table_fertigkeiten_koerper table tbody tr:last-child,
+.table_fertigkeiten_geist table tbody tr:last-child {
+  border-bottom: none;
+}

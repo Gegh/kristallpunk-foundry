@@ -1,0 +1,30 @@
+{
+  "id": "kristallpunk-foundry",
+  "title": "Kristallpunk Sheet Fixes",
+  "description": "Style fixes for the Kristallpunk character sheet, built with Custom System Builder. Currently: removes Foundry's default zebra-striped table rows in favour of a calm, uniform row background with a thin divider.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14.367"
+  },
+  "authors": [
+    {
+      "name": "Georg Hofmann"
+    }
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "custom-system-builder",
+        "type": "system",
+        "compatibility": {}
+      }
+    ]
+  },
+  "styles": [
+    "kristallpunk-sheet.css"
+  ],
+  "url": "https://github.com/Gegh/kristallpunk-foundry",
+  "manifest": "https://raw.githubusercontent.com/Gegh/kristallpunk-foundry/main/module.json",
+  "license": "LICENSE"
+}
