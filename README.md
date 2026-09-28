@@ -26,7 +26,7 @@ Kristallpunk hat kein eigenes, offizielles Foundry-System, weil es ein privates 
 
 Damit rechnen Maximalwerte für Ausdauer live aus den Attributen, jede Fertigkeit zeigt ihren Würfel-Pool (Fertigkeit + zugehöriges Attribut) direkt daneben, anklickbar. Ein Klick würfelt die passende Anzahl W6 und zeigt im Chat die einzelnen Würfel, die Erfolge (6er) und die Einser getrennt, inklusive Markierung bei einem kritischen Erfolg oder Misserfolg nach der Dreierpasch-Regel.
 
-Der Status-Bereich zeigt zusätzlich einen visuellen Status-Anzeiger: eine Zellenreihe je Körper-Ausdauer/Leibwunde, Geist-Ausdauer/Nervenschock und Innenleben, mit einem Marker "●" auf der Zelle des aktuellen Werts (Nachbau des physischen Statusanzeiger-Gadgets vom Spieltisch). Innenleben ist ein einziges Feld von -3 (Zweifel) bis +3 (Zuversicht) und ersetzt hier die getrennten Zuversicht/Zweifel-Zähler des Hauptregelwerks, siehe "Bekannte Lücken" unten.
+Der Status-Bereich zeigt zusätzlich einen visuellen, klickbaren Status-Anzeiger: eine Zellenreihe je Körper-Ausdauer/Leibwunde, Geist-Ausdauer/Nervenschock und Innenleben, mit einem Marker "●" auf der Zelle des aktuellen Werts (Nachbau des physischen Statusanzeiger-Gadgets vom Spieltisch). Ein Klick auf eine Zelle setzt den Wert direkt, wie beim Verschieben des physischen Markers; Zellen jenseits des für den Charakter berechneten Maximums sind leer und inert. Innenleben ist ein einziges Feld von -3 (Zweifel) bis +3 (Zuversicht) und ersetzt hier die getrennten Zuversicht/Zweifel-Zähler des Hauptregelwerks, siehe "Bekannte Lücken" unten.
 
 ## Bekannte Lücken
 
