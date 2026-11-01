@@ -53,12 +53,28 @@ def computed_label(key, formula, prefix="", suffix="", tooltip="", roll_message=
     c["tooltip"] = tooltip
     return c
 
-def roll_script(display_name, pool_expr_js):
+def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=None):
     # JS Script-Expression: roll the pool once, show individual dice, count
     # 6er (Erfolge) and 1er (Einser), flag crit success/failure per Dreierpasch.
     # Component must be KEYLESS: keyed Labels run scripts synchronously, which
     # breaks "await" (CSB docs, Guides/Formula-System, Sync/Async section) and
     # produced an unrelated Roll-parse exception during this build.
+    #
+    # ausdauer_field: a Fertigkeitsprobe costs 1 point of the matching Ausdauer
+    # (regelzusammenfassung-1-0.pdf, S. 4-5). Abgeleitete Werte cost none, so
+    # derived-value pool buttons call this with ausdauer_field=None. Clamped
+    # at 0: going below 0 isn't modeled (that's Anstrengung, not automated).
+    deduct = ""
+    if ausdauer_field:
+        deduct = (
+            f"  const vorher = Number(props.{ausdauer_field} ?? 0);\n"
+            f"  const nachher = Math.max(0, vorher - 1);\n"
+            f"  entity.update({{\"system.props.{ausdauer_field}\": String(nachher)}});\n"
+        )
+    kosten_hinweis = (
+        f"  text += `<br><em>-1 {ausdauer_label}-Ausdauer (jetzt ${{nachher}})</em>`;\n"
+        if ausdauer_field else ""
+    )
     return (
         "%{\n"
         "  const props = entity.system.props;\n"
@@ -68,21 +84,23 @@ def roll_script(display_name, pool_expr_js):
         "  const faces = roll.terms.at(0).results.map(r => r.result).sort((a,b) => a-b);\n"
         "  const sechser = faces.filter(f => f === 6).length;\n"
         "  const einser = faces.filter(f => f === 1).length;\n"
+        f"{deduct}"
         f"  let text = `<strong>{display_name}</strong> (Pool ${{pool}}): (${{faces.join(', ')}})<br>"
         "Erfolge (6er): <strong>${sechser}</strong> &nbsp; Einser: <strong>${einser}</strong>`;\n"
         "  if (einser >= 3) text += `<br>⚠️ Kritischer Misserfolg (3+ Einser)`;\n"
         "  if (sechser >= 3) text += `<br>✨ Kritischer Erfolg (3+ Sechser)`;\n"
+        f"{kosten_hinweis}"
         "  return text;\n"
         "}%"
     )
 
-def pool_button(display_name, pool_formula, pool_expr_js, tooltip):
+def pool_button(display_name, pool_formula, pool_expr_js, tooltip, ausdauer_field=None, ausdauer_label=None):
     # Keyless (key ""): nothing else references this component's value, and it
     # must be keyless for its async roll script to execute correctly.
     c = wrapper("", {
         "type": "label", "size": "full-size", "icon": "",
         "value": f"${{{pool_formula}}}$", "prefix": "Pool ", "suffix": " W6",
-        "rollMessage": roll_script(display_name, pool_expr_js),
+        "rollMessage": roll_script(display_name, pool_expr_js, ausdauer_field, ausdauer_label),
         "altRollMessage": "", "rollMessageToChat": True, "altRollMessageToChat": True,
         "style": "button",
     })
@@ -206,9 +224,9 @@ status = panel("panel_status", "Status", "vertical", [
     ausdauer_table,
     panel("panel_status_rest", "", "grid-3", [
         number_field("leibwunden", "Leibwunden", 0, 3, True,
-                     "-1 auf koerperliche Proben pro Leibwunde, kumulativ bis -3. Vierte Leibwunde wird zu Nervenschock."),
+                     "Jede Leibwunde kostet Koerper-Proben +1 Ausdauer extra, bis hoechstens +3 (also 4 statt 1 Punkt bei drei Leibwunden). Vierte Leibwunde wird zu Nervenschock."),
         number_field("nervenschock", "Nervenschock", 0, 3, True,
-                     "-1 auf geistige Proben pro Nervenschock, kumulativ bis -3. Vierter Nervenschock wird zu Leibwunde."),
+                     "Jeder Nervenschock kostet Geist-Proben +1 Ausdauer extra, bis hoechstens +3. Vierter Nervenschock wird zu Leibwunde."),
         number_field("innenleben", "Innenleben", -3, 3, True, innenleben_tip),
     ], collapsible=False),
     panel("panel_statusanzeiger", "Status-Anzeiger", "vertical", [
@@ -284,7 +302,7 @@ skills_geist = [
     ("wissenschaft", "Wissenschaft", "intelligenz", "Intelligenz", "Naturwissenschaften und andere Wissenschaften, theoretisches Wissen."),
 ]
 
-def skill_table(key, skills):
+def skill_table(key, skills, ausdauer_field, ausdauer_label):
     rows = []
     for skey, sname, akey, aname, tip in skills:
         full_tip = f"{aname}. {tip}"
@@ -292,15 +310,17 @@ def skill_table(key, skills):
         rows.append([
             static_label(skey + "_label", f"{sname} ({aname})", full_tip),
             number_field(skey, "", 0, 9, False, full_tip),
-            pool_button(sname, f"{skey} + {akey}", pool_js, full_tip + " Anklicken zum Wuerfeln."),
+            pool_button(sname, f"{skey} + {akey}", pool_js,
+                        full_tip + " Anklicken zum Wuerfeln, zieht 1 " + ausdauer_label + "-Ausdauer ab.",
+                        ausdauer_field, ausdauer_label),
         ])
     return table(key, rows, 3, "lcc")
 
-fertigkeiten_koerper = panel("panel_fertigkeiten_koerper", "Fertigkeiten: Koerperlich - Pool anklicken zum Wuerfeln", "vertical", [
-    skill_table("table_fertigkeiten_koerper", skills_koerper),
+fertigkeiten_koerper = panel("panel_fertigkeiten_koerper", "Fertigkeiten: Koerperlich - Pool anklicken zum Wuerfeln (zieht 1 Koerper-Ausdauer ab)", "vertical", [
+    skill_table("table_fertigkeiten_koerper", skills_koerper, "koerper_ausdauer", "Koerper"),
 ])
-fertigkeiten_geist = panel("panel_fertigkeiten_geist", "Fertigkeiten: Geist - Pool anklicken zum Wuerfeln", "vertical", [
-    skill_table("table_fertigkeiten_geist", skills_geist),
+fertigkeiten_geist = panel("panel_fertigkeiten_geist", "Fertigkeiten: Geist - Pool anklicken zum Wuerfeln (zieht 1 Geist-Ausdauer ab)", "vertical", [
+    skill_table("table_fertigkeiten_geist", skills_geist, "geist_ausdauer", "Geist"),
 ])
 
 body_contents = [attr_koerper, attr_geist, status, abgeleitet, fertigkeiten_koerper, fertigkeiten_geist]
