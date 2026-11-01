@@ -39,6 +39,20 @@ def static_label(key, text, tooltip=""):
     c["tooltip"] = tooltip
     return c
 
+def text_field(key, label, default_value="", tooltip="", autocomplete=""):
+    # CSB "textField" component (confirmed against the installed system's
+    # own source, module/sheets/components/TextField.js: toJSON() emits
+    # exactly charList/maxLength/autocomplete besides the shared
+    # size/label/defaultValue fields already used by number_field()).
+    # autocomplete is a plain comma-separated string, not a ${...}$ formula.
+    c = wrapper(key, {
+        "type": "textField", "size": "full-size", "label": label,
+        "defaultValue": default_value, "charList": "", "maxLength": "",
+        "autocomplete": autocomplete,
+    })
+    c["tooltip"] = tooltip
+    return c
+
 def computed_label(key, formula, prefix="", suffix="", tooltip="", roll_message="", roll_to_chat=False):
     # Plain live-computed display, e.g. for showing a calculated maximum
     # next to an editable current-value field. Optionally clickable: a
@@ -53,7 +67,8 @@ def computed_label(key, formula, prefix="", suffix="", tooltip="", roll_message=
     c["tooltip"] = tooltip
     return c
 
-def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=None):
+def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=None,
+                 kompetenz_field=None):
     # JS Script-Expression: roll the pool once, show individual dice, count
     # 6er (Erfolge) and 1er (Einser), flag crit success/failure per Dreierpasch.
     # Component must be KEYLESS: keyed Labels run scripts synchronously, which
@@ -64,6 +79,18 @@ def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=
     # (regelzusammenfassung-1-0.pdf, S. 4-5). Abgeleitete Werte cost none, so
     # derived-value pool buttons call this with ausdauer_field=None. Clamped
     # at 0: going below 0 isn't modeled (that's Anstrengung, not automated).
+    #
+    # kompetenz_field: Kompetenzen let the player reroll all 1er once per
+    # probe, but only if a known competency actually covers the action in
+    # that moment (proben-system.md, "Kompetenzen") - a judgment call, not
+    # something a fixed formula can decide. So instead of a persistent
+    # per-skill toggle, this asks via Dialog.confirm() right when a 1 comes
+    # up, showing whatever the player entered in that skill's Kompetenzen
+    # text field as a reminder. Foundry's Dialog is a plain global here (CSB
+    # runs Script-Expressions through the AsyncFunction constructor with no
+    # extra sandboxing, confirmed in the installed system's own
+    # formulas/ComputablePhrase.js), so this await works the same way
+    # await new Roll(...).evaluate() already does above.
     deduct = ""
     if ausdauer_field:
         deduct = (
@@ -75,6 +102,39 @@ def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=
         f"  text += `<br><em>-1 {ausdauer_label}-Ausdauer (jetzt ${{nachher}})</em>`;\n"
         if ausdauer_field else ""
     )
+    kompetenz_block = ""
+    kompetenz_hinweis = ""
+    if kompetenz_field:
+        kompetenz_block = (
+            "  let kompetenzGenutzt = false;\n"
+            "  let facesVorKompetenz = null;\n"
+            "  if (einser > 0) {\n"
+            f"    const kompetenzen = String(props.{kompetenz_field} ?? \"\").trim();\n"
+            "    const hinweis = kompetenzen\n"
+            "      ? `Bekannte Kompetenzen fuer diese Fertigkeit: <strong>${kompetenzen}</strong><br>Deckt eine davon diese Handlung ab?`\n"
+            "      : `Deckt eine (ggf. noch nicht eingetragene) Kompetenz diese Handlung ab?`;\n"
+            "    kompetenzGenutzt = await Dialog.confirm({\n"
+            "      title: \"Kompetenz nutzen?\",\n"
+            "      content: `<p>${hinweis}<br>Dann darfst du einmal alle gewuerfelten 1er wiederholen (zweites Ergebnis bindend).</p>`,\n"
+            "    });\n"
+            "    if (kompetenzGenutzt) {\n"
+            "      facesVorKompetenz = faces.slice();\n"
+            "      const rerollRoll = await new Roll(einser + \"d6\").evaluate();\n"
+            "      const rerollFaces = rerollRoll.terms.at(0).results.map(r => r.result);\n"
+            "      let ri = 0;\n"
+            "      for (let i = 0; i < faces.length; i++) {\n"
+            "        if (faces[i] === 1) { faces[i] = rerollFaces[ri]; ri++; }\n"
+            "      }\n"
+            "      faces.sort((a, b) => a - b);\n"
+            "      sechser = faces.filter(f => f === 6).length;\n"
+            "      einser = faces.filter(f => f === 1).length;\n"
+            "    }\n"
+            "  }\n"
+        )
+        kompetenz_hinweis = (
+            "  if (kompetenzGenutzt) text += `<br><em>Kompetenz genutzt, 1er wiederholt "
+            "(vorher: ${facesVorKompetenz.join(', ')})</em>`;\n"
+        )
     return (
         "%{\n"
         "  const props = entity.system.props;\n"
@@ -82,11 +142,13 @@ def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=
         f"  if (pool <= 0) return `<strong>{display_name}</strong>: Pool 0, kein Wurf möglich.`;\n"
         "  const roll = await new Roll(pool + \"d6\").evaluate();\n"
         "  const faces = roll.terms.at(0).results.map(r => r.result).sort((a,b) => a-b);\n"
-        "  const sechser = faces.filter(f => f === 6).length;\n"
-        "  const einser = faces.filter(f => f === 1).length;\n"
+        "  let sechser = faces.filter(f => f === 6).length;\n"
+        "  let einser = faces.filter(f => f === 1).length;\n"
+        f"{kompetenz_block}"
         f"{deduct}"
         f"  let text = `<strong>{display_name}</strong> (Pool ${{pool}}): (${{faces.join(', ')}})<br>"
         "Erfolge (6er): <strong>${sechser}</strong> &nbsp; Einser: <strong>${einser}</strong>`;\n"
+        f"{kompetenz_hinweis}"
         "  if (einser >= 3) text += `<br>⚠️ Kritischer Misserfolg (3+ Einser)`;\n"
         "  if (sechser >= 3) text += `<br>✨ Kritischer Erfolg (3+ Sechser)`;\n"
         f"{kosten_hinweis}"
@@ -94,13 +156,14 @@ def roll_script(display_name, pool_expr_js, ausdauer_field=None, ausdauer_label=
         "}%"
     )
 
-def pool_button(display_name, pool_formula, pool_expr_js, tooltip, ausdauer_field=None, ausdauer_label=None):
+def pool_button(display_name, pool_formula, pool_expr_js, tooltip, ausdauer_field=None, ausdauer_label=None,
+                 kompetenz_field=None):
     # Keyless (key ""): nothing else references this component's value, and it
     # must be keyless for its async roll script to execute correctly.
     c = wrapper("", {
         "type": "label", "size": "full-size", "icon": "",
         "value": f"${{{pool_formula}}}$", "prefix": "Pool ", "suffix": " W6",
-        "rollMessage": roll_script(display_name, pool_expr_js, ausdauer_field, ausdauer_label),
+        "rollMessage": roll_script(display_name, pool_expr_js, ausdauer_field, ausdauer_label, kompetenz_field),
         "altRollMessage": "", "rollMessageToChat": True, "altRollMessageToChat": True,
         "style": "button",
     })
@@ -242,6 +305,52 @@ status = panel("panel_status", "Status", "vertical", [
     ], collapsible=False),
 ])
 
+# --- Initiative: Wurf mit 1W6 (kein Erfolge-Pool), + manueller Bonus ---
+# attribute-koerper-geist.md: "Wurf mit 1W6 zu Beginn jeder Szene, kostet
+# keine Ausdauer... 6er oder hoeher zuerst, 1er zuletzt." Einige angeborene
+# Eigenschaften/Kompetenzen veraendern den Wurf (z. B. Fechtstil
+# polnisch/ungarisch +1, Blitzschnelle Reflexe addiert Ausweichen-Erfolge) -
+# das sind Einzelfaelle mit eigener Mechanik, kein allgemeines Pool-Wuerfeln,
+# deshalb hier nur ein manuelles Bonus-Feld statt eigener Automatisierung je
+# Eigenschaft.
+def initiative_script(bonus_field):
+    return (
+        "%{\n"
+        "  const props = entity.system.props;\n"
+        f"  const bonus = {num(bonus_field)};\n"
+        "  const roll = await new Roll(\"1d6\").evaluate();\n"
+        "  const wurf = roll.terms.at(0).results[0].result;\n"
+        "  const gesamt = wurf + bonus;\n"
+        "  let text = `<strong>Initiative</strong>: Wurf ${wurf} + Bonus ${bonus} = <strong>${gesamt}</strong><br>"
+        "6 oder hoeher handelt zuerst, 1 zuletzt. Bei Gleichstand: SC vor NSC, "
+        "SC untereinander neu entscheiden oder zusaetzlichen W6 wuerfeln.`;\n"
+        "  return text;\n"
+        "}%"
+    )
+
+def initiative_button(tooltip, bonus_field):
+    c = wrapper("", {
+        "type": "label", "size": "full-size", "icon": "",
+        "value": "1W6 + Bonus", "prefix": "", "suffix": "",
+        "rollMessage": initiative_script(bonus_field),
+        "altRollMessage": "", "rollMessageToChat": True, "altRollMessageToChat": True,
+        "style": "button",
+    })
+    c["tooltip"] = tooltip
+    return c
+
+initiative_tip = ("Wurf mit 1W6 zu Beginn jeder Szene, kostet keine Ausdauer. 6 oder hoeher handelt "
+                   "zuerst, 1 zuletzt. Bei Gleichstand handeln SC vor NSC; SC untereinander entscheiden "
+                   "neu oder wuerfeln einen zusaetzlichen W6. Manche angeborenen Eigenschaften und "
+                   "Kompetenzen (z. B. Fechtstil polnisch/ungarisch, Blitzschnelle Reflexe) veraendern "
+                   "den Wurf, trage sie hier als manuellen Bonus ein.")
+
+initiative_row = table("table_initiative", [[
+    static_label("initiative_label", "Initiative", initiative_tip),
+    number_field("initiative_bonus", "Bonus", -5, 5, True, initiative_tip),
+    initiative_button(initiative_tip + " Anklicken zum Wuerfeln.", "initiative_bonus"),
+]], 3, "lcc")
+
 # --- Abgeleitete Werte: Table (Name | Pool-Button) + Ruestung/Schutz separat ---
 # Each entry: key, display name, CSB-formula (for the passive "Pool N" display),
 # JS expression using entity.system.props (for the roll script), tooltip.
@@ -271,6 +380,7 @@ for key, name, formula, pool_js, tip in derived:
 derived_table = table("table_abgeleitet", derived_rows, 2, "lc")
 
 abgeleitet = panel("panel_abgeleitet", "Abgeleitete Werte (v1.0, vorlaeufig) - anklicken zum Wuerfeln", "vertical", [
+    initiative_row,
     derived_table,
     panel("panel_ruestung_schutz", "", "grid-2", [
         number_field("ruestung", "Ruestung", 0, 3, False,
@@ -302,24 +412,55 @@ skills_geist = [
     ("wissenschaft", "Wissenschaft", "intelligenz", "Intelligenz", "Naturwissenschaften und andere Wissenschaften, theoretisches Wissen."),
 ]
 
+# Kompetenz-Katalog je Fertigkeit, Namen aus fertigkeiten-und-kompetenzen.md
+# (Charaktererschaffung v1.0, Schritt 3b), nur fuer die Autocomplete-Liste
+# des jeweiligen Kompetenzen-Textfelds - keine erzwungene Auswahl, der
+# Spieler kann trotzdem jeden Text eintragen (z. B. eigene abgesprochene
+# Kompetenzen, siehe proben-system.md).
+KOMPETENZEN_KATALOG = {
+    "athletik": "Klettern, Reiten, Dauerlauf, Schwimmen",
+    "aufmerksamkeit": "Dazwischenwerfen, Schreckhaft, Wachtposten, Ueberwachen, Durchschauen, Entdecken",
+    "ausweichen": "Asiatischer Kampf, Blitzschnelle Reflexe, Tanzen, Wie ein Blatt im Wind",
+    "fernkampf": "Artillerist, Duellant, Scharfschuetze, Kristallschuss, Ladedrill, Lieblingswaffe, Meisterschuetze, Schuss vom Pferderuecken",
+    "handwerk": "Erlerntes Handwerk, Reparieren, Schloesser oeffnen, Galvanistische Kristallapparaturen, Nutztierkunde, Wildtierkunde, Gaertnerei",
+    "heimlichkeit": "Auf der Lauer liegen, Gauklertricks, Gaunerzinken, Gluecksspiel-Schummler, Informationen und Geruechte, Schlossknacker, Schleichen, Taschendiebstahl, Verbergen & verstecken",
+    "nahkampf": "Kampf zu Pferd, Landwehr, Lieblingswaffe, Strassenkampf, Waffenmeister, Parade-Riposte, Fechtstil venezianisch, Fechtstil polnisch/ungarisch, Fechtstil japanisch, Nahkampfstil Boxkampf, Nahkampfstil Ringkampf, Nahkampfstil asiatisches Kun Fu",
+    "orientierung": "Kutschen & Fuhrwerke, Navigation, Spuren lesen urban, Spuren lesen Natur, Truebnisgebiete, Ueberleben-Natur, Wegfindung, Wildtierkunde",
+    "autoritaet": "Bedrohen, Einschuechtern, Kommandieren, Standhaftigkeit, Verhoertechniken",
+    "bildung": "Antike Sprachen, Bibliotheksstruktur, Buchfuehrung und Verwaltung, Enormes Allgemeinwissen, Etikette, Fachwissen-Profession, Gesetz, Fremdsprachen",
+    "inspiration": "Achtsamkeit, Bildhauerei, Faelschung, Gluecks-Spieler(in), Malerei, Musik, Dichtung",
+    "medizin": "Abgestumpft, Chirurgie, Feldarzt, Forensik, Internist, Kraeutermedizin, Kunst des toten Lebens, Pathologie, Psychologie, Truebnispathologe, Tiere",
+    "prismenresonanz": "Buchzauberei, Resonanzkompetenz, Rituale",
+    "redekunst": "Befragen, Feilschen, Fuersorge, Geplauder, Luegen, Ueberzeugen, Verhandlungsexperte",
+    "schauspiel": "Darstellung, Etikette, Taeuschen & Verkleiden",
+    "wissenschaft": "Archeologie, Antike Sprachen, Biologie, Okkultismus, Pharmazie & Chemie, Philosophie & Geschichte, Politik, Naturwissenschaften",
+}
+
 def skill_table(key, skills, ausdauer_field, ausdauer_label):
     rows = []
     for skey, sname, akey, aname, tip in skills:
         full_tip = f"{aname}. {tip}"
         pool_js = f"{num(skey)} + {num(akey)}"
+        kompetenz_field = skey + "_kompetenzen"
+        katalog = KOMPETENZEN_KATALOG.get(skey, "")
+        kompetenz_tip = (f"Bekannte Kompetenzen fuer {sname} (frei eintragbar, z. B. eigene mit der SL "
+                          f"abgesprochene). Bekannte Faelle laut Regelwerk: {katalog}. Deckt eine davon "
+                          "eine Probe ab, fragt der Wuerfel-Button bei Einsern automatisch, ob alle "
+                          "einmal wiederholt werden sollen (zweites Ergebnis bindend).")
         rows.append([
             static_label(skey + "_label", f"{sname} ({aname})", full_tip),
             number_field(skey, "", 0, 9, False, full_tip),
+            text_field(kompetenz_field, "", "", kompetenz_tip, katalog),
             pool_button(sname, f"{skey} + {akey}", pool_js,
                         full_tip + " Anklicken zum Wuerfeln, zieht 1 " + ausdauer_label + "-Ausdauer ab.",
-                        ausdauer_field, ausdauer_label),
+                        ausdauer_field, ausdauer_label, kompetenz_field),
         ])
-    return table(key, rows, 3, "lcc")
+    return table(key, rows, 4, "lclc")
 
-fertigkeiten_koerper = panel("panel_fertigkeiten_koerper", "Fertigkeiten: Koerperlich - Pool anklicken zum Wuerfeln (zieht 1 Koerper-Ausdauer ab)", "vertical", [
+fertigkeiten_koerper = panel("panel_fertigkeiten_koerper", "Fertigkeiten: Koerperlich - Pool anklicken zum Wuerfeln (zieht 1 Koerper-Ausdauer ab), Kompetenzen eintragen fuer automatische Nachfrage beim Einser-Wiederholen", "vertical", [
     skill_table("table_fertigkeiten_koerper", skills_koerper, "koerper_ausdauer", "Koerper"),
 ])
-fertigkeiten_geist = panel("panel_fertigkeiten_geist", "Fertigkeiten: Geist - Pool anklicken zum Wuerfeln (zieht 1 Geist-Ausdauer ab)", "vertical", [
+fertigkeiten_geist = panel("panel_fertigkeiten_geist", "Fertigkeiten: Geist - Pool anklicken zum Wuerfeln (zieht 1 Geist-Ausdauer ab), Kompetenzen eintragen fuer automatische Nachfrage beim Einser-Wiederholen", "vertical", [
     skill_table("table_fertigkeiten_geist", skills_geist, "geist_ausdauer", "Geist"),
 ])
 

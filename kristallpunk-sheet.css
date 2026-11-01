@@ -10,6 +10,7 @@
    Trennlinie zwischen Zeilen, das gibt Struktur ohne die alternierende
    Unruhe. */
 .table_ausdauer table tbody tr,
+.table_initiative table tbody tr,
 .table_abgeleitet table tbody tr,
 .table_fertigkeiten_koerper table tbody tr,
 .table_fertigkeiten_geist table tbody tr {
@@ -18,10 +19,19 @@
 }
 
 .table_ausdauer table tbody tr:last-child,
+.table_initiative table tbody tr:last-child,
 .table_abgeleitet table tbody tr:last-child,
 .table_fertigkeiten_koerper table tbody tr:last-child,
 .table_fertigkeiten_geist table tbody tr:last-child {
   border-bottom: none;
+}
+
+/* Kompetenzen-Textfeld in der Fertigkeiten-Tabelle (4. Spalte): etwas
+   breiter als die schmale Wert-Spalte, damit mehrwortige Kompetenznamen
+   nicht sofort abgeschnitten werden. */
+.table_fertigkeiten_koerper table input[type="text"],
+.table_fertigkeiten_geist table input[type="text"] {
+  min-width: 120px;
 }
 
 /* Status-Anzeiger: visueller Ausdauer/Wunden/Innenleben-Tracker, Nachbau des
